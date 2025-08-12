@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Performance Analyzer</title>
+    <!-- NEW: Added Chart.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-accent: #22d3ee; /* Bright Cyan */
+            --secondary-accent: #f472b6; /* Pink */
+            --text-color: #e5e7eb;
+            --text-darker: #9ca3af;
+            --card-bg: rgba(23, 24, 39, 0.5);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --hover-bg: rgba(23, 24, 39, 0.8);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+            background-color: #0f101d;
+            background-image: radial-gradient(at 27% 37%, hsla(215, 98%, 61%, 0.1) 0px, transparent 50%), 
+                              radial-gradient(at 97% 21%, hsla(125, 98%, 72%, 0.1) 0px, transparent 50%),
+                              radial-gradient(at 52% 99%, hsla(355, 98%, 76%, 0.1) 0px, transparent 50%),
+                              radial-gradient(at 10% 29%, hsla(256, 96%, 68%, 0.1) 0px, transparent 50%),
+                              radial-gradient(at 97% 96%, hsla(38, 60%, 74%, 0.1) 0px, transparent 50%),
+                              radial-gradient(at 33% 50%, hsla(222, 67%, 73%, 0.1) 0px, transparent 50%),
+                              radial-gradient(at 79% 53%, hsla(342, 94%, 68%, 0.1) 0px, transparent 50%);
+            color: var(--text-color);
+            margin: 0;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .main-container {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            width: 100%;
+            max-width: 800px;
+            text-align: center;
+            transition: all 0.5s ease;
+        }
+        
+        h1 { font-size: 2.25rem; font-weight: 800; margin: 0; }
+        .subtitle { font-size: 1.1rem; color: var(--text-darker); margin-top: 0.5rem; margin-bottom: 2rem; }
+        
+        #drop-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 1rem;
+            padding: 2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        #drop-zone:hover { border-color: var(--primary-accent); background-color: rgba(34, 211, 238, 0.05); }
+        #file-name-display { color: var(--text-darker); margin-top: 1rem; font-style: italic; min-height: 1.2em; }
+        
+        #analyze-button {
+            width: 100%;
+            background: linear-gradient(90deg, var(--primary-accent) 0%, var(--secondary-accent) 100%);
+            color: #0f101d;
+            font-weight: bold;
+            font-size: 1rem;
+            padding: 1rem;
+            border: none;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.3), 0 0 20px rgba(244, 114, 182, 0.3);
+            margin-top: 1.5rem;
+        }
+        #analyze-button:hover { box-shadow: 0 0 30px rgba(34, 211, 238, 0.5), 0 0 30px rgba(244, 114, 182, 0.5); transform: translateY(-3px); }
+        #analyze-button:disabled { background: #374151; color: var(--text-darker); cursor: not-allowed; box-shadow: none; transform: none; }
+
+        .hidden { display: none; }
+        
+        h2 { font-size: 1.5rem; font-weight: 600; margin: 1.5rem 0 1rem 0; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; text-align: left;}
+        .card { background: var(--hover-bg); border: 1px solid var(--border-color); padding: 1rem; border-radius: 0.75rem; margin-bottom: 1rem; text-align: left; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+        th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { background-color: rgba(255, 255, 255, 0.05); }
+
+        .loader { border: 4px solid #374151; border-top: 4px solid var(--primary-accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 2rem auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        #error-container { background-color: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; padding: 1rem; border-radius: 0.75rem; }
+        
+        #reset-button {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-darker);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            margin-top: 2rem;
+            transition: all 0.3s ease;
+        }
+        #reset-button:hover {
+            background-color: var(--border-color);
+            color: var(--text-color);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="main-container">
+        <h1>Performance Analyzer</h1>
+        <p class="subtitle">Upload CSV data to generate a detailed report.</p>
+        
+        <div id="upload-section">
+            <div id="drop-zone">
+                <input type="file" id="csv-file-input" class="hidden" accept=".csv">
+                <p>Drag & drop your CSV file to upload</p>
+                <p id="file-name-display"></p>
+            </div>
+            <button id="analyze-button" disabled>
+                <span>Generate Report</span>
+            </button>
+        </div>
+
+        <div id="results-container" class="hidden">
+             <div id="loader-container" class="hidden"><div class="loader"></div></div>
+             <div id="error-container" class="hidden">
+                <p style="font-weight: bold;">Error</p>
+                <p id="error-message"></p>
+            </div>
+            
+            <div id="summary-section" class="hidden">
+                <!-- NEW: Canvas for the chart -->
+                <h2>Performance Chart</h2>
+                <div style="margin-bottom: 2rem;">
+                    <canvas id="performance-chart"></canvas>
+                </div>
+
+                <h2>Top 3 Performers</h2>
+                <div id="top-performers"></div>
+                <h2>Class Summary</h2>
+                <div id="pass-fail-summary"></div>
+                <h2>Subject Analysis</h2>
+                <div id="subject-analysis"></div>
+                <button id="reset-button">Analyze Another File</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadSection = document.getElementById('upload-section');
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('csv-file-input');
+        const analyzeButton = document.getElementById('analyze-button');
+        const fileNameDisplay = document.getElementById('file-name-display');
+        
+        const resultsContainer = document.getElementById('results-container');
+        const loader = document.getElementById('loader-container');
+        const errorContainer = document.getElementById('error-container');
+        const errorMessage = document.getElementById('error-message');
+        const summarySection = document.getElementById('summary-section');
+        const resetButton = document.getElementById('reset-button');
+
+        const API_ENDPOINT = 'https://fmuwu4mylg.execute-api.eu-north-1.amazonaws.com/default/student-marks-summarizer';
+        let selectedFile = null;
+        let performanceChart = null; // NEW: Variable to hold the chart instance
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--primary-accent)'; });
+        dropZone.addEventListener('dragleave', () => { dropZone.style.borderColor = 'var(--border-color)'; });
+        dropZone.addEventListener('drop', (e) => { e.preventDefault(); dropZone.style.borderColor = 'var(--border-color)'; handleFile(e.dataTransfer.files[0]); });
+
+        function handleFile(file) {
+            if (file && file.type === "text/csv") {
+                selectedFile = file;
+                fileNameDisplay.textContent = `Selected file: ${file.name}`;
+                analyzeButton.disabled = false;
+            } else {
+                selectedFile = null;
+                fileNameDisplay.textContent = "Please select a valid .csv file.";
+                analyzeButton.disabled = true;
+            }
+        }
+
+        analyzeButton.addEventListener('click', async () => {
+            if (!selectedFile || !API_ENDPOINT || API_ENDPOINT === 'YOUR_API_GATEWAY_URL_HERE') {
+                showError(!selectedFile ? "Please select a file first." : "API Endpoint not configured.");
+                return;
+            }
+
+            uploadSection.classList.add('hidden');
+            resultsContainer.classList.remove('hidden');
+            summarySection.classList.add('hidden');
+            loader.classList.remove('hidden');
+            errorContainer.classList.add('hidden');
+            
+            try {
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/csv' },
+                    body: await selectedFile.text()
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'An unknown error occurred.');
+                displayResults(data);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                loader.classList.add('hidden');
+            }
+        });
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorContainer.classList.remove('hidden');
+            summarySection.classList.add('hidden');
+            resetButton.classList.remove('hidden'); // Show reset button even on error
+        }
+
+        function displayResults(data) {
+            summarySection.classList.remove('hidden');
+            
+            // NEW: Render the chart
+            renderPerformanceChart(data.top_performers);
+
+            let topPerformersHtml = '<table><thead><tr><th>Name</th><th>Total Marks</th><th>Percentage</th></tr></thead><tbody>';
+            data.top_performers.forEach(p => {
+                topPerformersHtml += `<tr><td>${p.Name}</td><td>${p.TotalMarks}</td><td>${p.Percentage}%</td></tr>`;
+            });
+            document.getElementById('top-performers').innerHTML = topPerformersHtml + '</tbody></table>';
+
+            document.getElementById('pass-fail-summary').innerHTML = `
+                <div class="card"><strong>Passing Threshold:</strong> ${data.pass_fail_summary.threshold}%</div>
+                <div class="card"><strong>Students Passed:</strong> ${data.pass_fail_summary.passed}</div>
+                <div class="card"><strong>Students Failed:</strong> ${data.pass_fail_summary.failed}</div>`;
+            
+            let subjectHtml = '';
+            data.subject_analysis.forEach(s => {
+                subjectHtml += `<div class="card"><strong>${s.subject}</strong><br>Average: ${s.average_score}, Top: ${s.top_scorer.name} (${s.top_scorer.score})</div>`;
+            });
+            document.getElementById('subject-analysis').innerHTML = subjectHtml;
+        }
+        
+        // NEW: Function to create and update the chart
+        function renderPerformanceChart(performers) {
+            const ctx = document.getElementById('performance-chart').getContext('2d');
+            
+            if (performanceChart) {
+                performanceChart.destroy(); // Destroy old chart instance if it exists
+            }
+
+            const labels = performers.map(p => p.Name);
+            const marksData = performers.map(p => p.TotalMarks);
+
+            performanceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Total Marks',
+                        data: marksData,
+                        backgroundColor: [
+                            'rgba(34, 211, 238, 0.6)',
+                            'rgba(244, 114, 182, 0.6)',
+                            'rgba(74, 222, 128, 0.6)'
+                        ],
+                        borderColor: [
+                            'rgba(34, 211, 238, 1)',
+                            'rgba(244, 114, 182, 1)',
+                            'rgba(74, 222, 128, 1)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: { color: 'var(--text-color)' },
+                            grid: { color: 'var(--border-color)' }
+                        },
+                        x: {
+                            ticks: { color: 'var(--text-color)' },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        resetButton.addEventListener('click', () => {
+            resultsContainer.classList.add('hidden');
+            uploadSection.classList.remove('hidden');
+            selectedFile = null;
+            fileInput.value = ''; // Reset file input
+            fileNameDisplay.textContent = '';
+            analyzeButton.disabled = true;
+        });
+    </script>
+</body>
+</html>
